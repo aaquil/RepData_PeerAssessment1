@@ -1,25 +1,144 @@
 ---
-title: "Reproducible Research: Peer Assessment 1"
-output: 
-  html_document:
-    keep_md: true
+title: "RRactivity"
+author: "Noman Khalid"
+date: "Sunday, February 15, 2015"
+output: html_document
 ---
 
+##Loading and Processing the Data
 
-## Loading and preprocessing the data
+```{r, echo=TRUE}
+library(lattice)
 
+rractivity <- read.csv("RRactivity.csv", header = TRUE, 
+                       colClasses = c("numeric", "character", "numeric"),
+                       sep = ",")
 
+head(rractivity)
 
-## What is mean total number of steps taken per day?
+rractivity$date <- as.Date(rractivity$date, "%Y-%m-%d")
 
+```
 
+##What is mean total number of steps taken per day?
 
-## What is the average daily activity pattern?
+###total steps
 
+```{r, echo=TRUE}
+totalsteps <- aggregate(steps ~ date, data=rractivity, sum, na.rm=TRUE)
 
+```
 
-## Imputing missing values
+###Histogram
 
+```{r, echo=TRUE}
+hist (totalsteps$steps, main = "Daily Total Steps", xlab = "no. of days", col = "blue")
 
+```
 
-## Are there differences in activity patterns between weekdays and weekends?
+###Mean
+```{r, echo=TRUE}
+mean(totalsteps$steps)
+```
+
+###Median
+```{r, echo=TRUE}
+median(totalsteps$steps)
+```
+
+##What is the average daily activity pattern?
+
+###Time Series Plot
+
+```{r, echo=TRUE}
+time_series_plot <- tapply (rractivity$steps, rractivity$interval, mean, na.rm = TRUE)
+
+plot (row.names(time_series_plot), time_series_plot, type = "l", 
+      xlab = "Every 5 Minute Interval", ylab = "Daily Average",
+      main = "Average steps per interval", col = "green")
+```
+
+```{r, echo=TRUE}
+max_5min_interval <- which.max(time_series_plot)
+names(max_5min_interval)
+```
+
+##Imputing missing values
+
+```{r, echo=TRUE}
+totalNA_rractivity <- sum(is.na(rractivity))
+totalNA_rractivity
+```
+
+###Filling NAs
+
+```{r, echo=TRUE}
+avgsteps <- aggregate(steps ~ interval, data = rractivity, FUN = mean)
+fillingNA <- numeric ()
+for (i in 1:nrow(rractivity)) {
+        obs <- rractivity [i, ]
+        if (is.na(obs$steps)) {
+                steps <- subset(avgsteps, interval == obs$interval)$steps
+        } else {
+                steps <- obs$steps
+        }
+        fillingNA <- c(fillingNA, steps)
+}
+```
+
+###Creating new dataset with no NAs
+
+```{r, echo=TRUE}
+new_rractivity <- rractivity
+new_rractivity$steps <- fillingNA 
+```
+
+###Histogram of total steps by day
+
+```{r, echo=TRUE}
+stepstotalbyday <- aggregate(steps ~ date, data = new_rractivity, sum, na.rm = TRUE)
+
+hist(stepstotalbyday$steps, main = "Total Steps by Day", xlab = "day", col = "blue")
+```
+
+###Mean
+
+```{r, echo=TRUE}
+mean(stepstotalbyday$steps)
+```
+
+###Median
+```{r, echo=TRUE}
+median(stepstotalbyday$steps)
+```
+
+##Differences in activity between weekdays and weekends
+
+I am using the filled dataset for this part (new_rractivity)
+
+```{r, echo=TRUE}
+day <- weekdays(new_rractivity$date)
+daylevel <- vector()
+for (i in 1:nrow(new_rractivity)) {
+        if (day[i] == "Saturday") {
+                daylevel[i] <- "Weekend"
+        } else if (day[i] == "Sunday") {
+                daylevel[i] <- "Weekend"
+        } else {
+                daylevel[i] <- "Weekday"
+        }
+}
+new_rractivity$daylevel <- daylevel
+new_rractivity$daylevel <- factor(new_rractivity$daylevel)
+
+stepsByDay <- aggregate(steps ~ interval + daylevel, data = new_rractivity, mean)
+names(stepsByDay) <- c("interval", "daylevel", "steps")
+```
+
+###Weekend vs Weekday Plot
+
+```{r, echo=TRUE}
+xyplot(steps ~ interval | daylevel, stepsByDay, type = "l", layout = c(1, 2), xlab = "Interval", ylab = "Number of steps")
+```
+
+The graph shows that during weekdays the number of steps taken are high only at the start of day. While during weekends, there is significant activity across the day
